@@ -565,7 +565,7 @@ export default function MatchDetailPage({ match, navigate, copyShareLink, linkCo
                 MATCH SUMMARY
               </div>
               {!match.summary && (
-                <div style={{ fontSize: 12, color: '#334155', fontStyle: 'italic' }}>
+                <div style={{ fontSize: 12, color: '#475569', fontStyle: 'italic' }}>
                   No summary available.
                 </div>
               )}

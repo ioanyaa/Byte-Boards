@@ -14,7 +14,9 @@ import {
   BOARD_TILES, RESOURCES, EMPTY_DEV_CARDS, shuffleDeck, getValidRoadEdges, computeLongestRoad,
 } from './game/catan';
 import { getAgentDecision } from './game/ai';
+import { buildOccupancy, stealRandom, updateLargestArmy, updateLongestRoad, TARGET_SCORE, MAX_TURNS } from './game/match-state';
 import { callGemini, hasGeminiKey } from './game/gemini-client';
+import { registerEvalRoutes } from './eval-routes';
 import type { RobberPayload, KnightPayload, SeafarersContext } from './game/ai';
 import { BOARD_NODES, getEligibleRobberTiles } from './game/graph';
 import { ALL_TRAITS, TRAIT_DESCRIPTIONS, TRAIT_CONFLICTS, validateTraits } from './game/personality';
@@ -77,8 +79,6 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-const TARGET_SCORE = 8;
-const MAX_TURNS = 500;
 const GAME_TYPES = ['catan-classic', 'catan-seafarers'];
 const DEFAULT_AGENTS: { name: string; description: string; traits: string[] }[] = [
   { name: 'HexaMind',   description: 'Expansion-focused strategic planner',      traits: ['Expansionist', 'Aggressive'] },
@@ -285,88 +285,6 @@ async function appendEvent(input: {
 function readParam(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
-}
-
-function buildOccupancy(stateMap: Map<number, PlayerState>): BoardOccupancy {
-  return {
-    settlements: [...stateMap.values()].flatMap(p => p.settlementNodes),
-    cities:      [...stateMap.values()].flatMap(p => p.cityNodes),
-    roads:       [...stateMap.values()].flatMap(p => p.roadEdges),
-  };
-}
-
-function stealRandom(victim: PlayerState, thief: PlayerState): void {
-  const available = RESOURCES.filter(r => victim[r] > 0);
-  if (available.length === 0) return;
-  const res = available[Math.floor(Math.random() * available.length)];
-  victim[res] -= 1;
-  thief[res] += 1;
-}
-
-function updateLargestArmy(stateMap: Map<number, PlayerState>): void {
-  let currentHolderId: number | null = null;
-  let currentHolderKnights = 0;
-  for (const [id, s] of stateMap) {
-    if (s.hasLargestArmy) { currentHolderId = id; currentHolderKnights = s.knightsPlayed; }
-  }
-  if (currentHolderId === null) {
-    let bestId: number | null = null;
-    let bestKnights = 2;
-    for (const [id, s] of stateMap) {
-      if (s.knightsPlayed > bestKnights) { bestKnights = s.knightsPlayed; bestId = id; }
-    }
-    if (bestId !== null) stateMap.get(bestId)!.hasLargestArmy = true;
-  } else {
-    for (const [id, s] of stateMap) {
-      if (id !== currentHolderId && s.knightsPlayed > currentHolderKnights) {
-        stateMap.get(currentHolderId)!.hasLargestArmy = false;
-        s.hasLargestArmy = true;
-        currentHolderKnights = s.knightsPlayed;
-        currentHolderId = id;
-      }
-    }
-  }
-}
-
-function updateLongestRoad(stateMap: Map<number, PlayerState>): void {
-  function roadLen(id: number, s: PlayerState): number {
-    const myOcc = new Set([...s.settlementNodes, ...s.cityNodes]);
-    const oppOcc = new Set<number>();
-    for (const [oid, os] of stateMap) {
-      if (oid !== id) {
-        for (const n of os.settlementNodes) oppOcc.add(n);
-        for (const n of os.cityNodes) oppOcc.add(n);
-      }
-    }
-    return computeLongestRoad(s.roadEdges, myOcc, oppOcc);
-  }
-
-  let currentHolderId: number | null = null;
-  let currentHolderLen = 0;
-  for (const [id, s] of stateMap) {
-    if (s.hasLongestRoad) { currentHolderId = id; currentHolderLen = roadLen(id, s); break; }
-  }
-
-  if (currentHolderId === null) {
-    let bestId: number | null = null;
-    let bestLen = 4;
-    for (const [id, s] of stateMap) {
-      const len = roadLen(id, s);
-      if (len > bestLen) { bestLen = len; bestId = id; }
-    }
-    if (bestId !== null) stateMap.get(bestId)!.hasLongestRoad = true;
-  } else {
-    for (const [id, s] of stateMap) {
-      if (id === currentHolderId) continue;
-      const len = roadLen(id, s);
-      if (len > currentHolderLen) {
-        stateMap.get(currentHolderId)!.hasLongestRoad = false;
-        s.hasLongestRoad = true;
-        currentHolderLen = len;
-        currentHolderId = id;
-      }
-    }
-  }
 }
 
 async function persistAgentState(matchId: string, agentId: number, s: PlayerState): Promise<void> {
@@ -1522,7 +1440,15 @@ app.get('/api/health', async (_req: Request, res: Response) => {
   });
 });
 
-app.listen(PORT, () => {
+// Eval-only routes for the Python/DeepEval suite — no auth, no DB writes.
+// Never enable in production.
+if (process.env.ENABLE_EVAL_ROUTES === 'true') {
+  registerEvalRoutes(app);
+  console.log('[eval] Eval routes mounted at /api/eval/*');
+}
+
+function startServer() {
+  app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   (async () => {
     try {
@@ -1539,4 +1465,11 @@ app.listen(PORT, () => {
   }).catch((error) => {
     console.error('Failed to resume live matches on startup:', error);
   });
-});
+  });
+}
+
+export { app, startServer };
+
+if (require.main === module) {
+  startServer();
+}
