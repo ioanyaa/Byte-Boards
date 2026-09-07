@@ -11,8 +11,10 @@ export const ALL_TRAITS: Trait[] = [
 
 const CONFLICTS: Partial<Record<Trait, Trait[]>> = {
   Empathic:     ['Aggressive', 'Greedy', 'Militarist'],
+  Greedy:       ['Empathic', 'SmartBuilder', 'Merchant'],
   Aggressive:   ['Empathic', 'Defensive', 'Diplomatic'],
   Expansionist: ['Defensive', 'DevFocused'],
+  Defensive:    ['Aggressive', 'Expansionist', 'Settler'],
   SmartBuilder: ['FastSpender', 'Greedy'],
   FastSpender:  ['SmartBuilder', 'DevFocused', 'Tactician'],
   DevFocused:   ['FastSpender', 'Expansionist', 'Settler'],

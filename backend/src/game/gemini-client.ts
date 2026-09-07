@@ -14,7 +14,7 @@ function loadKeys(): string[] {
 
   if (numbered.length > 0) return numbered;
 
-  const fallback = process.env.GEMINI_API_KEY;
+  const fallback = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
   return fallback ? [fallback] : [];
 }
 
