@@ -7,9 +7,16 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
+    "types": ["node"],
+    // Pinned. Without an explicit rootDir, tsc infers it from the common path
+    // of all input files, so the emitted entrypoint moved depending on which
+    // files were present: a full checkout (src/ + test-agents.ts) emitted
+    // dist/src/index.js, while the Docker image — which copies only src/ —
+    // emitted dist/index.js. That is why CI stayed green while the production
+    // container crash-looped on MODULE_NOT_FOUND.
     "rootDir": "./src",
     "outDir": "./dist"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
 }

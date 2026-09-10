@@ -1,26 +1,10 @@
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: byte_boards_backend
-    restart: unless-stopped
-    ports:
-      - "5000:5000"
-    env_file:
-      - ./backend/.env
-    environment:
-      NODE_ENV: production
-    networks:
-      - app_network
-    extra_hosts:
-      - "cine406.go.ro:host-gateway"
-      - "host.docker.internal:host-gateway"
-
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+    image: bytenboard-frontend
     container_name: byte_boards_frontend
     restart: unless-stopped
     ports:
@@ -28,8 +12,27 @@ services:
     depends_on:
       - backend
     networks:
-      - app_network
+      - app-net
+
+  backend:
+    build: ./backend
+    image: bytenboard-backend
+    container_name: byte_boards_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:3003:5000"
+    networks:
+      - app-net
+      - global-db-net
 
 networks:
-  app_network:
+  # Shared frontend <-> backend network. Previously `backend` declared only
+  # global-db-net; naming any network replaces the implicit default, so the two
+  # services shared no network at all and nginx could not resolve "backend".
+  app-net:
     driver: bridge
+  # External network carrying the shared `universal-db` postgres container.
+  global-db-net:
+    external: true

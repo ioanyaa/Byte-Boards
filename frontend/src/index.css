@@ -1,1 +1,57 @@
 @import "tailwindcss";
+
+* { box-sizing: border-box; }
+
+:root {
+  font-family: Inter, system-ui, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  background: #080c14;
+  color: #e2e8f0;
+}
+
+/* Custom scrollbar for event feeds */
+.scroll-feed {
+  scrollbar-width: thin;
+  scrollbar-color: #1c2a3a transparent;
+}
+.scroll-feed::-webkit-scrollbar { width: 4px; }
+.scroll-feed::-webkit-scrollbar-track { background: transparent; }
+.scroll-feed::-webkit-scrollbar-thumb {
+  background: #1c2a3a;
+  border-radius: 4px;
+}
+
+/* VP bar fill animation */
+@keyframes fillBar {
+  from { width: 0; }
+}
+.vp-bar-fill {
+  animation: fillBar 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Live dot pulse */
+@keyframes livePulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
+  50%       { opacity: 0.6; box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+}
+.live-dot {
+  animation: livePulse 1.8s ease-in-out infinite;
+}
+
+/* Fade-in for cards */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fadeUp 0.25s ease-out;
+}
+
+/* Hex logo shape */
+.hex-logo {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}

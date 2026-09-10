@@ -6,8 +6,155 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
-  id    Int     @id @default(autoincrement())
-  name  String?
-  email String  @unique
+  id             Int     @id @default(autoincrement())
+  name           String?
+  email          String  @unique
+  password       String
+  role           Role     @default(USER)
+  createdAt      DateTime @default(now())
+  createdMatches Match[]  @relation("MatchCreator")
+  createdAgents  Agent[]  @relation("AgentCreator")
+  watchedMatches MatchWatcher[]
+}
+
+model Agent {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  createdById Int?
+  createdBy   User?        @relation("AgentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  wonMatches  Match[]      @relation("MatchWinner")
+  matches     MatchAgent[]
+  events      MatchEvent[] @relation("EventActor")
+  agentTraits AgentTrait[]
+}
+
+model Match {
+  id         String          @id @default(cuid())
+  name       String?
+  gameType   String
+  status     MatchStatus     @default(PENDING)
+  visibility MatchVisibility @default(PRIVATE)
+  createdAt  DateTime        @default(now())
+  startedAt  DateTime?
+  endedAt    DateTime?
+  winnerId   Int?
+  summary    String?
+  shareToken        String       @unique @default(cuid())
+  robberTile        Int          @default(9)
+  pirateHex         Int?
+  devDeck           Json         @default("[]")
+  largestArmyHolder Int?
+  longestRoadHolder Int?
+  createdById       Int?
+  winner      Agent?       @relation("MatchWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  createdBy   User?        @relation("MatchCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  agents      MatchAgent[]
+  events      MatchEvent[]
+  watchers    MatchWatcher[]
+}
+
+model MatchWatcher {
+  matchId String
+  userId  Int
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([matchId, userId])
+}
+
+model MatchAgent {
+  matchId     String
+  agentId     Int
+  seat        Int
+  score       Int    @default(0)
+  resources   Int    @default(0)
+  position    Int?
+  wood        Int    @default(0)
+  brick       Int    @default(0)
+  ore         Int    @default(0)
+  wheat       Int    @default(0)
+  sheep       Int    @default(0)
+  roads       Int    @default(0)
+  settlements Int    @default(2)
+  cities      Int    @default(0)
+  tiles           Json   @default("[]")
+  settlementNodes Json   @default("[]")
+  cityNodes       Json   @default("[]")
+  roadEdges       Json   @default("[]")
+  shipEdges       Json   @default("[]")
+  devCards        Json   @default("{}")
+  knightsPlayed   Int    @default(0)
+  islandVPs       Int    @default(0)
+  match       Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  agent       Agent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@id([matchId, agentId])
+  @@unique([matchId, seat])
+}
+
+model MatchEvent {
+  id        String    @id @default(cuid())
+  matchId   String
+  turn      Int
+  type      EventType
+  text      String
+  actorId   Int?
+  payload   Json?
+  createdAt DateTime  @default(now())
+  match     Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  actor     Agent?    @relation("EventActor", fields: [actorId], references: [id], onDelete: SetNull)
+}
+
+model Trait {
+  id          Int             @id @default(autoincrement())
+  name        String          @unique
+  description String
+  conflictsAs TraitConflict[] @relation("ConflictSource")
+  agentTraits AgentTrait[]
+}
+
+model TraitConflict {
+  sourceId Int
+  targetId Int
+  source   Trait @relation("ConflictSource", fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@id([sourceId, targetId])
+}
+
+model AgentTrait {
+  agentId Int
+  traitId Int
+  agent   Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  trait   Trait @relation(fields: [traitId], references: [id], onDelete: Cascade)
+
+  @@id([agentId, traitId])
+}
+
+enum MatchStatus {
+  PENDING
+  LIVE
+  PAUSED
+  COMPLETED
+}
+
+enum MatchVisibility {
+  PRIVATE
+  PROTECTED
+  PUBLIC
+}
+
+enum EventType {
+  COMMENTARY
+  MOVE
+  RESOURCE
+  RESULT
 }

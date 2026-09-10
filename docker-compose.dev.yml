@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:15
+    container_name: postgres-db
+    restart: unless-stopped
+    ports:                  # <--- ADD THIS LINE
+      - "5435:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: byte_boards_backend
+    restart: unless-stopped
+    # No `command:` override — the image CMD already runs `prisma db push`
+    # (which syncs the schema without migration files, good for local dev) and
+    # then the server. Duplicating it here is what let the dev and production
+    # entrypoint paths silently drift apart.
+    environment:
+      DATABASE_URL: "postgresql://admin:admin@db:5432/postgres?schema=public"
+      JWT_SECRET: "byte-boards-secret-change-in-production"
+      GEMINI_1: "${GEMINI_1:-}"
+      GEMINI_2: "${GEMINI_2:-}"
+      GEMINI_3: "${GEMINI_3:-}"
+      GEMINI_4: "${GEMINI_4:-}"
+      GEMINI_5: "${GEMINI_5:-}"
+      GEMINI_6: "${GEMINI_6:-}"
+      GEMINI_7: "${GEMINI_7:-}"
+      GEMINI_8: "${GEMINI_8:-}"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: "http://localhost:3000"
+    container_name: byte_boards_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

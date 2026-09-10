@@ -1,0 +1,1087 @@
+% =====================================================================
+%  Platformă de simulare autonomă a jocului Catan cu agenți AI
+%  Raport MDS — Anul 2, Semestrul 2 — FMI, Universitatea din București
+%
+%  COMPILARE: pdfLaTeX (implicit pe Overleaf).
+%  Dacă vrei fonturi mai frumoase, schimbă compilatorul în LuaLaTeX
+%  din Overleaf (Menu > Compiler) și vezi nota din preambul.
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+% ---------- Limbă și codare ----------
+% Documentul compilează pe ORICE motor. Detectăm automat care rulează.
+%
+% RECOMANDARE: pune Overleaf pe LuaLaTeX (Menu > Compiler > LuaLaTeX).
+% Cu pdfLaTeX, literele ș și ț sunt *desenate* corect, dar sunt scrise în
+% stratul de text al PDF-ului ca "s" + virgulă separată. Efect: copy-paste
+% și căutarea în PDF returnează "s,i" în loc de "și". LuaLaTeX folosește
+% glifele Unicode native și elimină problema.
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+  \usepackage[T1]{fontenc}
+  \usepackage{lmodern}
+\else
+  \usepackage{fontspec}
+  \setmainfont{Latin Modern Roman}
+  \setsansfont{Latin Modern Sans}
+  \setmonofont{Latin Modern Mono}
+\fi
+\usepackage[romanian]{babel}
+
+% ---------- Layout ----------
+\usepackage[a4paper,margin=2.4cm,headheight=14pt]{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{microtype}
+
+% ---------- Grafică și culoare ----------
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage[most]{tcolorbox}
+
+% ---------- Tabele ----------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+
+% ---------- Cod sursă ----------
+\usepackage{listings}
+
+% ---------- Linkuri ----------
+\usepackage[hidelinks]{hyperref}
+
+% =====================================================================
+%  PALETĂ DE CULORI — folosește ACELEAȘI valori și în draw.io
+%  ca diagramele să arate ca parte din același document.
+% =====================================================================
+\definecolor{bbNavy}{HTML}{0F2942}    % titluri, contur
+\definecolor{bbBlue}{HTML}{2563EB}    % accent primar
+\definecolor{bbAmber}{HTML}{D97706}   % accent secundar
+\definecolor{bbGreen}{HTML}{059669}   % succes / test trecut
+\definecolor{bbRed}{HTML}{DC2626}     % bug / eroare
+\definecolor{bbGray}{HTML}{64748B}    % text secundar
+\definecolor{bbLight}{HTML}{F1F5F9}   % fundal blocuri
+
+% ---------- Stil titluri ----------
+\titleformat{\section}
+  {\color{bbNavy}\Large\bfseries}{\thesection}{0.6em}{}
+  [\vspace{-0.6em}\color{bbBlue}\rule{\textwidth}{1pt}]
+\titleformat{\subsection}
+  {\color{bbNavy}\large\bfseries}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}
+  {\color{bbGray}\normalsize\bfseries}{\thesubsubsection}{0.6em}{}
+
+% ---------- Antet / subsol ----------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{bbGray}Platformă Simulare Autonomă Catan}
+\fancyhead[R]{\small\color{bbGray}MDS 2026}
+\fancyfoot[C]{\small\color{bbGray}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ---------- Stil cod ----------
+\lstdefinestyle{bb}{
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{bbBlue}\bfseries,
+  commentstyle=\color{bbGray}\itshape,
+  stringstyle=\color{bbGreen},
+  numberstyle=\tiny\color{bbGray},
+  numbers=left, numbersep=8pt,
+  backgroundcolor=\color{bbLight},
+  frame=leftline, framerule=2pt, rulecolor=\color{bbBlue},
+  breaklines=true, breakatwhitespace=false,
+  showstringspaces=false,
+  tabsize=2, xleftmargin=12pt, framexleftmargin=12pt,
+  captionpos=b,
+  extendedchars=true,
+}
+% Sub pdfLaTeX, listings nu digeră UTF-8 în corpul verbatim; îi dăm o hartă
+% explicită. Sub LuaLaTeX nu e nevoie — Unicode funcționează nativ.
+\ifPDFTeX
+\lstset{
+  literate=%
+    {ă}{{\u{a}}}1 {Ă}{{\u{A}}}1
+    {â}{{\^a}}1   {Â}{{\^A}}1
+    {î}{{\^\i}}1 {Î}{{\^I}}1
+    {ș}{{\c{s}}}1 {Ș}{{\c{S}}}1
+    {ț}{{\c{t}}}1 {Ț}{{\c{T}}}1
+    {—}{{---}}1    {–}{{--}}1,
+}
+\fi
+\lstset{style=bb}
+
+% ---------- Cutii reutilizabile ----------
+\newtcolorbox{userstory}[1]{
+  enhanced, breakable,
+  colback=bbLight, colframe=bbBlue,
+  boxrule=0pt, leftrule=3pt, arc=2pt,
+  title={\bfseries #1}, coltitle=bbNavy,
+  colbacktitle=bbLight, fonttitle=\normalsize,
+  attach boxed title to top left={xshift=6pt,yshift=-2pt},
+  top=10pt,
+}
+\newtcolorbox{infobox}[1]{
+  enhanced, breakable,
+  colback=white, colframe=bbAmber,
+  boxrule=1pt, arc=3pt,
+  title={\bfseries #1}, coltitle=white, colbacktitle=bbAmber,
+}
+\newtcolorbox{bugbox}[1]{
+  enhanced, breakable,
+  colback=white, colframe=bbRed,
+  boxrule=1pt, arc=3pt,
+  title={\bfseries #1}, coltitle=white, colbacktitle=bbRed,
+}
+
+% Comandă scurtă pentru criterii de acceptare
+\newcommand{\ca}[1]{\par\smallskip{\footnotesize\textbf{\color{bbGray}Criterii de acceptare:} #1}}
+
+% Comandă pentru inserarea unei diagrame draw.io exportate ca PDF.
+% Dacă fișierul nu există încă, afișează un placeholder în locul lui,
+% astfel încât documentul să compileze chiar înainte de a desena diagramele.
+\newcommand{\diagrama}[3]{%
+  \begin{figure}[H]
+    \centering
+    \IfFileExists{diagrame/#1.pdf}
+      {\includegraphics[width=#2\textwidth,height=0.80\textheight,keepaspectratio]{diagrame/#1}}
+      {\IfFileExists{diagrame/#1.png}
+        {\includegraphics[width=#2\textwidth,height=0.80\textheight,keepaspectratio]{diagrame/#1}}
+        {\begin{tcolorbox}[enhanced,colback=bbLight,colframe=bbGray,
+            boxrule=0pt,arc=3pt,width=#2\textwidth,halign=center,
+            borderline={1.2pt}{0pt}{bbGray,dashed}]
+          \vspace{1.2cm}
+          {\color{bbGray}\bfseries\large [ DIAGRAMA LIPSĂ ]}\\[0.4cm]
+          {\color{bbGray}\ttfamily diagrame/#1.pdf}\\[0.3cm]
+          {\color{bbGray}\small Exportă diagrama din draw.io și încarc-o aici.}
+          \vspace{1.2cm}
+        \end{tcolorbox}}}
+    \caption{#3}
+    \label{fig:#1}
+  \end{figure}%
+}
+
+\begin{document}
+
+% =====================================================================
+%  PAGINA DE TITLU
+% =====================================================================
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+
+{\color{bbBlue}\rule{\textwidth}{2pt}}
+\vspace{0.8cm}
+
+{\Huge\bfseries\color{bbNavy}
+Platformă de simulare autonomă\\[0.3cm]
+a jocului de societate Catan\\[0.3cm]
+cu agenți AI\par}
+
+\vspace{0.6cm}
+{\color{bbBlue}\rule{\textwidth}{2pt}}
+
+\vspace{1.5cm}
+{\Large\color{bbGray}Raport de proiect\par}
+\vspace{0.3cm}
+{\large\color{bbGray}Metode de Dezvoltare Software\par}
+
+\vspace{2.5cm}
+
+\begin{tabular}{r@{\hspace{1em}}l}
+\textbf{\color{bbNavy}Echipă:} & Rusu Iulia \\
+                               & Barcan Silviu-Ioan \\
+                               & Cocut Ioana \\[0.6cm]
+\textbf{\color{bbNavy}Disciplina:} & MDS, Anul 2, Semestrul 2 \\[0.2cm]
+\textbf{\color{bbNavy}Facultatea:} & Matematică și Informatică, \\
+                                   & Universitatea din București \\[0.2cm]
+\textbf{\color{bbNavy}Data:} & Septembrie 2026 \\
+\end{tabular}
+
+\vfill
+
+\begin{tcolorbox}[colback=bbLight,colframe=bbNavy,boxrule=1pt,arc=3pt,width=0.85\textwidth]
+\centering\small
+\textbf{Repository:} \url{https://github.com/sigutz/Byte-Boards}\\[0.2cm]
+\textbf{Producție:} \url{https://www.bytenboards.games}
+\end{tcolorbox}
+
+\vspace{1cm}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% =====================================================================
+\section{Introducere și context}
+% =====================================================================
+
+\subsection{Descrierea produsului}
+
+Proiectul implementează o platformă web în care agenți AI joacă autonom
+\textit{Catan}, iar utilizatorii urmăresc partidele în timp real. Spre deosebire de o
+implementare clasică de joc, utilizatorul nu joacă --- el configurează agenții,
+pornește meciul și observă deciziile luate de aceștia, însoțite de comentariu
+generat automat.
+
+Sistemul suportă două seturi de reguli: \textbf{Catan Classic} (tablă de 19 hexagoane,
+54 de noduri) și \textbf{Catan Seafarers} (extindere cu 3 insule exterioare,
+nave, pirat și puncte de victorie pentru explorare).
+
+\subsection{Stack tehnologic}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Nivel} & \textbf{Tehnologie} & \textbf{Rol în sistem} \\
+\midrule
+Frontend & React 19 + Vite 7 & SPA cu routing manual (\texttt{pushState}), fără librărie de router \\
+Backend  & Express 5 + Node.js & API REST (24 de rute) și flux SSE \\
+ORM      & Prisma 7 + \texttt{@prisma/adapter-pg} & 9 modele; pool \texttt{pg} partajat pentru SQL brut \\
+Bază de date & PostgreSQL & Persistență meciuri, agenți, evenimente \\
+AI        & Google Gemini & Decizii agenți, comentariu, rezumate, moderare \\
+Infrastructură & Docker + Nginx & Build multi-stage, reverse proxy \\
+CI/CD     & GitHub Actions & 6 job-uri de verificare + deploy prin SSH \\
+\bottomrule
+\end{tabularx}
+\caption{Stack-ul tehnologic al platformei}
+\end{table}
+
+\subsection{Metodologia de dezvoltare}
+
+Echipa a folosit un proces \textbf{iterativ-incremental} de tip Agile, cu
+livrare pe funcționalități:
+
+\begin{itemize}
+  \item cerințele au fost formulate ca \textbf{user stories} cu criterii de
+        acceptare explicite, grupate pe \textbf{epice};
+  \item prioritizarea backlog-ului s-a făcut prin metoda \textbf{MoSCoW};
+  \item fiecare funcționalitate a fost dezvoltată pe un \textbf{feature branch}
+        izolat și integrată în \texttt{main} printr-un \textbf{Pull Request} cu review;
+  \item integrarea a fost protejată de un \textbf{pipeline CI} care rulează
+        teste, build și lint la fiecare push.
+\end{itemize}
+
+\newpage
+% =====================================================================
+\section{User Stories și Backlog}
+% =====================================================================
+
+Backlog-ul a fost organizat pe \textbf{4 epice}, cu 15 user stories. Fiecare
+poveste identifică explicit \textbf{actorul} (Vizitator, Utilizator autentificat,
+Administrator), ceea ce a permis derivarea directă a diagramei de cazuri de
+utilizare din Secțiunea~\ref{sec:usecase}.
+
+\subsection{Epic 1 --- Configurarea și urmărirea live a meciurilor}
+
+\begin{userstory}{US-01 --- Urmărirea unui meci live}
+\textbf{Ca} Vizitator cu link către un meci, \textbf{vreau} să urmăresc agenții AI
+jucând în timp real, \textbf{pentru ca} să pot observa deciziile și strategiile lor.
+\ca{Tabla se actualizează automat, fără refresh manual; fiecare mutare apare în
+maximum 3 secunde; fără link, un Vizitator nu poate descoperi meciuri.}
+\end{userstory}
+
+\begin{userstory}{US-02 --- Alegerea jocului și a modului}
+\textbf{Ca} Utilizator autentificat, \textbf{vreau} să aleg între Catan Classic și
+Catan Seafarers, \textbf{pentru ca} să pot selecta setul de reguli dorit.
+\ca{Selector vizibil la crearea meciului; în Seafarers sunt disponibile nave și
+puncte de victorie pentru insule.}
+\end{userstory}
+
+\begin{userstory}{US-03 --- Pornirea unui meci la cerere}
+\textbf{Ca} Utilizator autentificat, \textbf{vreau} să pornesc un meci nou alegând
+agenții participanți, \textbf{pentru ca} să generez conținut nou de urmărit.
+\ca{Minimum 2 agenți eligibili; limita de agenți este impusă în UI cu mesaj clar.}
+\end{userstory}
+
+\begin{userstory}{US-04 --- Oprirea sau ștergerea unui meci}
+\textbf{Ca} Utilizator autentificat, \textbf{vreau} să opresc sau să șterg un meci
+pe care îl dețin, \textbf{pentru ca} să pot anula un meci blocat sau pornit din greșeală.
+\ca{La „Stop” meciul se oprește și e marcat încheiat; la ștergere dispare din istoric.}
+\end{userstory}
+
+\begin{userstory}{US-05 --- Comentariu live generat de AI}
+\textbf{Ca} Vizitator, \textbf{vreau} să văd comentariu generat de AI în timpul
+meciului, \textbf{pentru ca} experiența să fie mai captivantă.
+\ca{La un eveniment semnificativ (comerț, hoț) apare o linie de comentariu în
+câteva secunde.}
+\end{userstory}
+
+\begin{userstory}{US-06 --- Vizualizarea trăsăturilor agenților}
+\textbf{Ca} Vizitator, \textbf{vreau} să văd trăsăturile fiecărui agent,
+\textbf{pentru ca} să înțeleg \textit{de ce} ia o anumită decizie, nu doar \textit{ce} face.
+\ca{Trăsăturile sunt afișate per agent; trăsăturile în conflict sunt rezolvate
+conform regulilor \texttt{TraitConflict} fără eroare.}
+\end{userstory}
+
+\subsection{Epic 2 --- Istoric și analitice}
+
+\begin{userstory}{US-07 --- Navigarea în istoricul meciurilor}
+\textbf{Ca} Utilizator autentificat, \textbf{vreau} să răsfoiesc meciurile trecute,
+\textbf{pentru ca} să pot urmări tipare în timp.
+\ca{Listă cu dată, tip de joc și agenți participanți.}
+\end{userstory}
+
+\begin{userstory}{US-08 --- Detalii și statistici de meci}
+\textbf{Ca} Utilizator autentificat, \textbf{vreau} să deschid un meci trecut,
+\textbf{pentru ca} să analizez momentele cheie.
+\ca{Log complet de evenimente per jucător, deținătorul drumului cel mai lung,
+scoruri finale.}
+\end{userstory}
+
+\begin{userstory}{US-09 --- Filtrarea istoricului}
+\textbf{Ca} Utilizator autentificat, \textbf{vreau} să filtrez istoricul după tipul
+de joc, \textbf{pentru ca} să mă concentrez pe ce mă interesează.
+\ca{La selectarea unui filtru sunt afișate doar meciurile de acel tip.}
+\end{userstory}
+
+\begin{userstory}{US-10 --- Metrici de performanță per agent}
+\textbf{Ca} Utilizator autentificat, \textbf{vreau} să văd statistici agregate per
+agent, \textbf{pentru ca} să înțeleg care performează cel mai bine.
+\ca{Rată de câștig, număr de meciuri, scor mediu, defalcate pe tip de joc.}
+\end{userstory}
+
+\subsection{Epic 3 --- Autentificare și proprietate}
+
+\begin{userstory}{US-11 --- Înregistrare și autentificare}
+\textbf{Ca} Vizitator, \textbf{vreau} să îmi creez cont și să mă autentific,
+\textbf{pentru ca} să dețin agenți și să controlez cine îmi vede meciurile.
+\ca{Parola stocată cu \texttt{bcrypt}; sesiune JWT; la credențiale greșite nu se
+creează sesiune.}
+\end{userstory}
+
+\begin{userstory}{US-12 --- Deținerea agenților proprii}
+\textbf{Ca} Utilizator autentificat, \textbf{vreau} să dețin agenții pe care îi
+creez, \textbf{pentru ca} doar eu să îi pot configura sau înscrie în meciuri.
+\ca{Agenții de sistem sunt vizibili tuturor; agenții proprii doar creatorului;
+numele sunt moderate automat înainte de salvare.}
+\end{userstory}
+
+\subsection{Epic 4 --- Confidențialitate, partajare și administrare}
+
+\begin{userstory}{US-13 --- Controlul vizibilității meciurilor}
+\textbf{Ca} Utilizator autentificat, \textbf{vreau} să marchez meciurile ca private,
+protejate sau publice, \textbf{pentru ca} eu să decid cine le vede.
+\ca{Un utilizator fără drept de acces nu poate vedea conținutul unui meci privat.}
+\end{userstory}
+
+\begin{userstory}{US-14 --- Partajare prin link sau invitație}
+\textbf{Ca} Utilizator autentificat, \textbf{vreau} să generez un link de partajare
+bazat pe token, \textbf{pentru ca} să pot arăta un meci interesant unor persoane anume.
+\ca{Cu tokenul valid, meciul poate fi vizualizat fără autentificare.}
+\end{userstory}
+
+\begin{userstory}{US-15 --- Moderare de către administrator}
+\textbf{Ca} Administrator, \textbf{vreau} să pot șterge orice meci indiferent de
+proprietar, \textbf{pentru ca} să elimin conținut nepotrivit sau defect.
+\ca{Rolul \texttt{ADMIN} are drept de ștergere pe orice resursă.}
+\end{userstory}
+
+\subsection{Prioritizare prin metoda MoSCoW}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{@{}>{\bfseries}l X@{}}
+\toprule
+\textbf{Prioritate} & \textbf{User Stories} \\
+\midrule
+\textcolor{bbRed}{Must have}    & US-01, US-02, US-03, US-05, US-07, US-08, US-11 \\
+\textcolor{bbAmber}{Should have} & US-04, US-09, US-10, US-12 \\
+\textcolor{bbBlue}{Could have}  & US-06, US-13, US-14, US-15 \\
+\textcolor{bbGray}{Won't have (v1)} & Multiplayer uman, chat live între utilizatori, turnee \\
+\bottomrule
+\end{tabularx}
+\caption{Prioritizarea cerințelor prin metoda MoSCoW}
+\end{table}
+
+\newpage
+% =====================================================================
+\section{Diagrame UML}
+% =====================================================================
+
+Modelarea sistemului folosește notația \textbf{UML 2.5}. Diagramele acoperă
+atât perspectiva \textbf{structurală} (cazuri de utilizare, clase, componente,
+desfășurare), cât și cea \textbf{comportamentală} (secvență, stare, activitate).
+Toate au fost realizate în \texttt{draw.io} și exportate vectorial (PDF), astfel
+încât să rămână clare la orice nivel de zoom.
+
+% ---------------------------------------------------------------------
+\subsection{Diagrama cazurilor de utilizare}
+\label{sec:usecase}
+
+Diagrama de cazuri de utilizare formalizează cerințele din Secțiunea 2. Sistemul
+are trei actori umani cu drepturi cumulative --- \textbf{Vizitator}
+$\subset$ \textbf{Utilizator autentificat} $\subset$ \textbf{Administrator} ---
+și un \textbf{actor secundar non-uman}, API-ul Gemini, invocat de sistem pentru
+deciziile agenților și generarea de text.
+
+\diagrama{01-use-case}{1.0}{Diagrama cazurilor de utilizare --- actori și funcționalități}
+
+Relațiile modelate sunt:
+\begin{itemize}
+  \item \textbf{Generalizare} între actori: Administratorul moștenește tot ce
+        poate face un Utilizator autentificat, care la rândul lui moștenește
+        drepturile Vizitatorului.
+  \item \texttt{\textless\textless include\textgreater\textgreater} ---
+        \textit{Pornire meci} include obligatoriu \textit{Selectare agenți}
+        și \textit{Moderare nume}.
+  \item \texttt{\textless\textless extend\textgreater\textgreater} ---
+        \textit{Generare rezumat AI} extinde \textit{Finalizare meci}, fiind
+        opțională (la indisponibilitatea API-ului se folosește un text implicit).
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\subsection{Diagrama de clase (modelul de domeniu)}
+
+Schema relațională este descrisă de 9 entități. Relația centrală este
+\texttt{MatchAgent} --- o \textbf{clasă de asociere} între \texttt{Match} și
+\texttt{Agent}, care nu doar leagă cele două entități, ci poartă întreaga stare
+de joc a unui jucător într-un meci (resurse, clădiri, cărți de dezvoltare).
+
+\diagrama{02-class-diagram}{1.0}{Diagrama de clase --- modelul de domeniu cu multiplicități}
+
+\begin{infobox}{Decizie de modelare}
+Trăsăturile agenților sunt modelate \textbf{relațional}, nu ca un câmp JSON:
+\texttt{Trait} (catalogul), \texttt{AgentTrait} (asocierea many-to-many) și
+\texttt{TraitConflict} (auto-asociere pe \texttt{Trait} care codifică perechile
+incompatibile). Astfel validarea combinațiilor invalide --- de exemplu
+\textit{Empathic} împreună cu \textit{Aggressive} --- se face prin interogare,
+nu prin logică hardcodată în aplicație.
+\end{infobox}
+
+% ---------------------------------------------------------------------
+\subsection{Diagrama de componente}
+
+Diagrama de componente arată descompunerea logică a sistemului și
+\textbf{interfețele oferite și cerute} între module.
+
+\diagrama{03-component}{1.0}{Diagrama de componente --- module și interfețe}
+
+Motorul de joc este izolat complet de persistență: modulele din
+\texttt{backend/src/game/} sunt funcții pure, fără dependențe de Prisma sau
+Express. Această separare este ceea ce permite rularea unui meci complet în
+teste, fără bază de date (vezi Secțiunea~\ref{sec:teste}).
+
+% ---------------------------------------------------------------------
+\subsection{Diagrama de desfășurare}
+
+Diagrama de desfășurare descrie topologia reală din producție: noduri fizice,
+containere Docker, rețele și protocoale.
+
+\diagrama{04-deployment}{1.0}{Diagrama de desfășurare --- containere, rețele și porturi}
+
+\begin{infobox}{Detaliu critic de infrastructură}
+Containerul \texttt{backend} este atașat la \textbf{două} rețele Docker:
+\texttt{app-net} (comunicarea cu frontend-ul) și \texttt{global-db-net} (rețea
+externă, partajată cu containerul de bază de date \texttt{universal-db}).
+Omiterea primei rețele a cauzat o cădere completă de producție, analizată în
+Secțiunea~\ref{sec:bug3}.
+\end{infobox}
+
+% ---------------------------------------------------------------------
+\subsection{Diagrama de secvență --- ciclul de viață al unui meci}
+
+Diagrama de secvență urmărește un meci de la cererea HTTP inițială până la
+persistarea rezumatului final, evidențiind natura \textbf{asincronă} a simulării:
+răspunsul HTTP se întoarce imediat, iar simularea continuă în fundal, comunicând
+cu clientul prin Server-Sent Events.
+
+\diagrama{05-sequence}{0.95}{Diagrama de secvență --- pornirea și derularea unui meci}
+
+Elementele importante sunt fragmentele combinate:
+\begin{itemize}
+  \item \texttt{loop} --- bucla de simulare, repetată până la atingerea a 8 puncte
+        de victorie sau a limitei de 500 de ture;
+  \item \texttt{alt} --- ramificarea pe disponibilitatea API-ului Gemini: dacă
+        apelul eșuează sau lipsește cheia, se aplică euristica deterministă;
+  \item mesajul \textbf{asincron} (săgeată deschisă) pentru evenimentele SSE,
+        spre deosebire de apelurile sincrone (săgeată plină).
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\subsection{Diagrama de stare --- statusul unui meci}
+
+Entitatea \texttt{Match} are un ciclu de viață explicit, codificat în enumerarea
+\texttt{MatchStatus}.
+
+\diagrama{06-state-machine}{0.70}{Diagrama de stare --- tranzițiile unui meci}
+
+Tranziția \texttt{LIVE} $\rightarrow$ \texttt{PAUSED} $\rightarrow$ \texttt{LIVE}
+este reversibilă, în timp ce \texttt{COMPLETED} este o \textbf{stare finală}:
+odată atinsă, meciul nu mai poate fi repornit. Repornirea serverului declanșează
+tranziția de recuperare --- meciurile rămase \texttt{LIVE} în baza de date sunt
+reluate automat din starea persistată.
+
+% ---------------------------------------------------------------------
+\subsection{Diagrama de activitate --- algoritmul unei ture}
+
+O tură se desfășoară în două faze distincte: mai întâi \textbf{producția}, comună
+tuturor jucătorilor și determinată de zaruri, apoi \textbf{decizia}, repetată
+individual pentru fiecare agent. Cele două sunt prezentate separat, pentru
+lizibilitate.
+
+\subsubsection{Faza de producție}
+
+\diagrama{07a-activity-productie}{0.55}{Diagrama de activitate --- faza de producție a resurselor}
+
+Nodul de decizie pe rezultatul zarurilor ($=7$ sau $\neq 7$) separă cele două
+regimuri de joc: producția normală de resurse, respectiv activarea hoțului cu
+descărcarea obligatorie a jucătorilor care dețin cel puțin 7 resurse. Această
+fază se execută o singură dată per tură, înaintea oricărei decizii de agent.
+
+\subsubsection{Faza de decizie a agenților}
+
+\diagrama{07b-activity-decizie}{0.50}{Diagrama de activitate --- decizia și acțiunea unui agent}
+
+Bucla parcurge agenții în ordinea locurilor. Pentru fiecare, motorul calculează
+mai întâi mulțimea mutărilor legale; abia apoi intervine componenta AI, iar
+nodul de decizie pe disponibilitatea cheii Gemini arată explicit calea de
+rezervă: la eșec sau lipsă de cheie se aplică euristica deterministă, astfel
+încât simularea nu se blochează niciodată.
+
+După aplicarea acțiunii, persistarea stării în baza de date și emiterea
+evenimentului SSE sunt \textbf{independente} între ele --- niciuna nu așteaptă
+rezultatul celeilalte. Ieșirea din buclă se face fie la atingerea pragului de
+victorie, fie la depășirea limitei de ture.
+
+\newpage
+% =====================================================================
+\section{Source Control cu Git}
+% =====================================================================
+
+\subsection{Strategia de branching}
+
+Proiectul folosește un model de tip \textbf{feature branching}: nicio modificare
+nu se face direct pe \texttt{main}, iar fiecare funcționalitate majoră este
+dezvoltată izolat și integrată printr-un Pull Request cu review.
+
+\diagrama{08-git-flow}{1.0}{Strategia de branching --- ramuri de funcționalitate și puncte de integrare}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{@{}l X l@{}}
+\toprule
+\textbf{Branch} & \textbf{Scop} & \textbf{Autor} \\
+\midrule
+\texttt{branch-initial-setup} & Schelet inițial frontend + backend & Rusu Iulia \\
+\texttt{login-and-share} & Autentificare JWT, share links, Docker & Rusu Iulia \\
+\texttt{ai-branch} & Motor AI Gemini, graf tablă, personalitate & Barcan Silviu \\
+\texttt{testeAgenti} & Suită de teste pentru logica jocului & Cocut Ioana \\
+\texttt{CItests} & Workflow GitHub Actions & Cocut Ioana \\
+\texttt{bot-ownership-admin-controls} & Proprietate agenți, rol admin, privacy & Rusu Iulia \\
+\texttt{seafarers-game-mode} & Modul Seafarers complet cu AI agentiv & Rusu Iulia \\
+\texttt{tests-and-evals} & Suită Vitest + evals DeepEval & Rusu Iulia \\
+\texttt{fix/production-deploy} & Remediere cădere de producție & Barcan Silviu \\
+\bottomrule
+\end{tabularx}
+\caption{Ramurile create în cadrul proiectului}
+\end{table}
+
+\subsection{Pull Requests}
+
+Au fost integrate \textbf{13 Pull Requests}, toate cu review înainte de merge.
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{PR} & \textbf{Branch} & \textbf{Descriere} \\
+\midrule
+\#2  & \texttt{branch-initial-setup} & Setup inițial de proiect \\
+\#7  & \texttt{login-and-share} & Autentificare, Docker, partajare \\
+\#8, \#9 & \texttt{ai-branch} & AI Gemini, graf tablă, personalitate \\
+\#10 & \texttt{testeAgenti} & Teste automate pentru agenți \\
+\#11 & \texttt{CItests} & Pipeline CI GitHub Actions \\
+\#12--\#14 & \texttt{bot-ownership-admin-controls} & Proprietate agenți + administrare \\
+\#15, \#16 & \texttt{seafarers-game-mode} & Modul Seafarers \\
+\#17 & \texttt{tests-and-evals} & 140 teste Vitest + 3 suite de evals \\
+\bottomrule
+\end{tabularx}
+\caption{Pull Requests integrate în \texttt{main}}
+\end{table}
+
+\subsection{Tehnici Git utilizate}
+
+\begin{itemize}
+  \item \textbf{Feature branches} --- nicio modificare direct pe \texttt{main};
+  \item \textbf{Pull Requests cu code review} --- toate integrările trec prin PR;
+  \item \textbf{Rebase} --- sincronizare cu \texttt{main} înainte de PR
+        (\texttt{git pull --rebase origin main});
+  \item \textbf{Merge commits} --- păstrate în istoric pentru trasabilitate;
+  \item \textbf{Branch protection prin CI} --- un PR nu poate fi integrat
+        dacă vreo verificare automată eșuează.
+\end{itemize}
+
+% =====================================================================
+\section{Teste automate și evaluări AI}
+\label{sec:teste}
+% =====================================================================
+
+Testarea are \textbf{trei niveluri}, fiecare cu un scop distinct: teste
+unitare pe motorul de joc, teste de integrare pe API, și \textit{evals}
+pentru componenta non-deterministă (LLM).
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{@{}l l r X@{}}
+\toprule
+\textbf{Nivel} & \textbf{Unealtă} & \textbf{Teste} & \textbf{Ce validează} \\
+\midrule
+Unitare & Vitest & 140 & Reguli de joc, graf tablă, trăsături, simulare completă \\
+Integrare & Vitest + Supertest & (incluse) & Rute API, autorizare, degradare fără DB \\
+Regresie & Node \texttt{assert} & 15 & Suita istorică \texttt{test-agents.ts} \\
+Evals AI & DeepEval (Python) & 3 suite & Calitatea deciziilor și textului generat de LLM \\
+\bottomrule
+\end{tabularx}
+\caption{Nivelurile de testare din proiect}
+\end{table}
+
+\subsection{Teste unitare pe motorul de joc}
+
+Modulele din \texttt{backend/src/game/} sunt funcții pure, deci pot fi testate
+fără bază de date sau server. Suita acoperă validarea acțiunilor legale
+(\texttt{getValidActions}), aplicarea efectelor (\texttt{applyAction}),
+calculul punctajului (\texttt{computeVP}), construcția grafului tablei
+și sistemul de trăsături.
+
+\begin{lstlisting}[language=bash,caption={Rularea suitei complete de teste}]
+cd backend && npm test
+
+  v src/game/personality.test.ts       (17 tests)
+  v src/game/graph.test.ts             (21 tests)
+  v src/game/seafarers-graph.test.ts   (16 tests)
+  v src/game/seafarers.test.ts         (18 tests)
+  v src/game/catan.test.ts             (49 tests)
+  v src/game/game-simulation.test.ts   (10 tests)
+  v src/api.test.ts                    ( 9 tests)
+
+  Test Files  7 passed (7)
+       Tests  140 passed (140)
+\end{lstlisting}
+
+\subsection{Testarea prin simulare de meci complet}
+
+Cel mai valoros test nu verifică o funcție, ci o \textbf{proprietate invariantă}
+pe parcursul unui meci întreg. Modulul \texttt{simulation-harness.ts} rulează un
+meci complet folosind exact aceleași funcții ca aplicația reală, dar fără
+persistență, iar testele verifică invarianți:
+
+\begin{itemize}
+  \item există întotdeauna un câștigător (prin scor sau prin limita de ture);
+  \item niciun jucător nu ajunge la o cantitate negativă de resurse;
+  \item un nod nu poate fi simultan colonie și oraș;
+  \item cel mult un jucător deține \textit{Longest Road} la un moment dat,
+        și doar cu un drum de lungime $\geq 5$;
+  \item cel mult un jucător deține \textit{Largest Army}, și doar cu
+        $\geq 3$ cavaleri jucați.
+\end{itemize}
+
+Această abordare --- \textit{property-based testing} --- prinde clase întregi de
+erori pe care testele punctuale nu le-ar detecta, pentru că explorează stări de
+joc generate aleator la fiecare rulare.
+
+\subsection{Evals pentru agenți AI}
+
+Componenta AI este \textbf{non-deterministă}: nu se poate scrie o aserțiune de
+egalitate pe ieșirea unui LLM. Soluția standard este evaluarea prin
+\textit{metrici de calitate}, unde un al doilea model joacă rol de
+\textbf{judecător}. Proiectul folosește framework-ul \textbf{DeepEval} cu metrici
+de tip \texttt{GEval}, rulate ca teste \texttt{pytest} împotriva unor rute
+dedicate din backend.
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{@{}l X l@{}}
+\toprule
+\textbf{Eval} & \textbf{Ce măsoară} & \textbf{Prag} \\
+\midrule
+\texttt{TraitAlignment} & Acțiunea aleasă este consistentă cu trăsăturile declarate ale agentului & 0.6 \\
+\texttt{CommentaryGrounding} & Comentariul descrie fidel acțiunea, fără detalii inventate & 0.6 \\
+\texttt{Moderare nume} & Acuratețea deciziilor de moderare pe 14 cazuri de test & $\geq$ 90\% \\
+\bottomrule
+\end{tabularx}
+\caption{Metricile de evaluare a componentei AI}
+\end{table}
+
+\subsubsection{Rularea evaluărilor}
+
+Evaluările rulează împotriva backend-ului pornit local, prin rute dedicate care
+sunt montate \textbf{doar} când variabila \texttt{ENABLE\_EVAL\_ROUTES} are
+valoarea \texttt{true} --- ele nu au autentificare și nu sunt niciodată active în
+producție. Sunt necesare două chei Gemini, cu roluri diferite (poate fi aceeași
+cheie în ambele locuri):
+
+\begin{itemize}
+  \item \textbf{pentru backend} (\texttt{GEMINI\_API\_KEY} sau
+        \texttt{GEMINI\_1} \dots \texttt{GEMINI\_8}), folosită de componenta
+        evaluată. Fără ea, backend-ul trece silențios pe euristica deterministă,
+        iar evaluările ar nota euristica, nu modelul;
+  \item \textbf{pentru modelul-judecător} (\texttt{GOOGLE\_API\_KEY}, exportată
+        sau pusă în \texttt{evals/.env}). Este cerută doar de
+        \texttt{test\_agent\_decisions.py} și \texttt{test\_match\_summary.py};
+        \texttt{test\_name\_moderation.py} compară direct verdictul de moderare
+        cu rezultatul așteptat, fără judecător.
+\end{itemize}
+
+\begin{lstlisting}[language=bash,caption={Rularea suitei de evals DeepEval}]
+# Terminal 1 -- backend cu rutele de eval activate
+cd backend
+export GEMINI_API_KEY=<cheia-gemini>    # sau GEMINI_1..8 in backend/.env
+ENABLE_EVAL_ROUTES=true npm run dev
+
+# Terminal 2 -- evaluarile
+cd evals
+pip install -r requirements.txt
+export GOOGLE_API_KEY=<cheia-gemini>
+
+deepeval test run test_agent_decisions.py -v
+deepeval test run test_match_summary.py -v
+deepeval test run test_name_moderation.py -v
+\end{lstlisting}
+
+Comanda \texttt{deepeval test run} execută fișierul de test prin \texttt{pytest}
+și adaugă la final raportul DeepEval cu scorurile metricilor. Opțiunea \texttt{-v}
+(\textit{verbose}) afișează rezultatul fiecărui caz de test în parte, nu doar
+totalul --- util pentru a identifica exact scenariul care nu atinge pragul.
+
+\begin{infobox}{Garanție structurală înaintea evaluării calitative}
+Independent de calitatea răspunsului LLM, sistemul are o garanție \textbf{tare}:
+\texttt{getAgentDecision()} returnează întotdeauna o acțiune din lista de mutări
+legale. Dacă modelul propune o acțiune invalidă, dacă răspunsul nu e JSON valid,
+sau dacă apelul eșuează, se aplică euristica deterministă. \textbf{Nicio ieșire a
+modelului nu poate corupe starea jocului} --- evals-urile măsoară \textit{cât de
+bună} este decizia, nu \textit{dacă este legală}.
+\end{infobox}
+
+\newpage
+% =====================================================================
+\section{Raportare de bug și rezolvare prin Pull Request}
+% =====================================================================
+
+\subsection{Bug \#1 --- Eșec de parsare JSON la autentificare}
+
+\begin{bugbox}{Simptom}
+După un deploy, pagina de login returna\\
+\texttt{JSON.parse: unexpected character at line 1 column 1 of the JSON data}.
+\end{bugbox}
+
+\textbf{Investigație.} Frontend-ul apela \texttt{POST /api/auth/login} și încerca
+să parseze răspunsul ca JSON, dar Nginx returna o pagină HTML de eroare
+\texttt{502 Bad Gateway}. Cauza reală era că backend-ul nu pornise: procesul se
+oprea la \texttt{prisma db push}, pentru că schema conținea o coloană cu date
+existente pe care Prisma refuza să o șteargă fără confirmare explicită.
+
+\textbf{Cauză rădăcină.} Dockerfile-ul de producție nu includea flagul
+\texttt{--accept-data-loss}. \textbf{Rezolvare:} PR \#15, cu reproducere locală
+și review.
+
+\subsection{Bug \#2 --- Crash de runtime în modul Seafarers}
+
+\begin{bugbox}{Simptom}
+Meciurile Seafarers se opreau după câteva ture cu\\
+\texttt{TypeError: Cannot read properties of undefined (reading 'adjacentNodes')}.
+\end{bugbox}
+
+\textbf{Investigație.} Funcția \texttt{getValidActions} caută nodurile adiacente
+în structura \texttt{BOARD\_NODES}, definită pentru tabla clasică (nodurile
+0--53). În Seafarers, jucătorii pot coloniza nodurile exterioare 54--71, care nu
+existau în acea structură; accesarea returna \texttt{undefined}.
+
+\begin{lstlisting}[language=Java,caption={Fix aplicat --- optional chaining pentru noduri exterioare}]
+// INAINTE:
+for (const adjNode of BOARD_NODES[nodeId].adjacentNodes) {
+
+// DUPA:
+for (const adjNode of (BOARD_NODES[nodeId]?.adjacentNodes ?? [])) {
+\end{lstlisting}
+
+Nodurile exterioare sunt astfel ignorate la calculul drumurilor --- ceea ce este
+corect din punct de vedere al regulilor, drumurile neputând fi construite pe mare.
+\textbf{Rezolvare:} PR \#15.
+
+\subsection{Bug \#3 --- Cădere completă de producție: CI verde, imagine nefuncțională}
+\label{sec:bug3}
+
+Acesta este cel mai instructiv defect al proiectului, pentru că ilustrează o
+categorie de erori pe care testele unitare \textbf{nu o pot prinde prin
+construcție}: o divergență între mediul de test și artefactul livrat.
+
+\begin{bugbox}{Simptom}
+Ambele containere în restart infinit. Backend:
+\texttt{Cannot find module '/app/dist/src/index.js'}.
+Frontend: \texttt{[emerg] host not found in upstream "backend"}.
+\end{bugbox}
+
+\subsubsection{Cauză rădăcină A --- calea artefactului depinde de contextul de build}
+
+Fișierul \texttt{tsconfig.json} nu declara explicit \texttt{rootDir}. În lipsa
+lui, TypeScript îl \textbf{deduce} din prefixul comun al fișierelor de intrare ---
+deci calea de ieșire depinde de \textit{ce fișiere sunt prezente}:
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{@{}l X l@{}}
+\toprule
+\textbf{Context} & \textbf{Fișiere de intrare} & \textbf{Ieșire \texttt{tsc}} \\
+\midrule
+Checkout complet (CI, local) & \texttt{src/**/*} + \texttt{test-agents.ts} & \texttt{dist/src/index.js} \\
+Imagine Docker & doar \texttt{src/**/*} & \texttt{dist/index.js} \\
+\bottomrule
+\end{tabularx}
+\caption{Divergența căii de ieșire între CI și imaginea Docker}
+\end{table}
+
+Dockerfile-ul copiază doar directorul \texttt{src/}, nu și \texttt{test-agents.ts}.
+Un commit anterior eliminase \texttt{rootDir}; un commit ulterior a „corectat”
+comanda de pornire către \texttt{dist/src/index.js}, potrivind-o cu ce producea
+CI-ul --- dar nu cu ce producea imaginea. \textbf{Rezultat: CI verde, imagine care
+nu putea porni niciodată.}
+
+\subsubsection{Cauză rădăcină B --- servicii pe rețele Docker disjuncte}
+
+În \texttt{docker-compose.yml}, serviciul \texttt{backend} declara doar rețeaua
+\texttt{global-db-net}. În Docker Compose, \textbf{declararea oricărei rețele
+înlocuiește rețeaua implicită}, deci \texttt{frontend} și \texttt{backend} nu mai
+aveau nicio rețea comună, iar numele \texttt{backend} devenea nerezolvabil.
+Nginx rezolvă gazda dintr-un \texttt{proxy\_pass} literal \textbf{o singură dată,
+la pornire}, și refuză să pornească dacă rezoluția eșuează --- astfel cădea și
+frontend-ul.
+
+\subsubsection{Remediere}
+
+\begin{lstlisting}[language=Java,caption={Fixarea căii de ieșire a compilatorului}]
+// tsconfig.json -- rootDir fixat explicit
+"rootDir": "./src",     // iesirea nu mai depinde de contextul de build
+"include": ["src/**/*"],
+"exclude": ["node_modules", "dist", "src/**/*.test.ts"]
+\end{lstlisting}
+
+\begin{lstlisting}[language=bash,caption={Verificare la build --- imaginea eșuează în loc să pornească defect}]
+RUN npm run build
+RUN test -f dist/index.js
+\end{lstlisting}
+
+Pentru rețea s-a introdus o rețea comună \texttt{app-net}, iar configurația Nginx
+a fost transformată în \textit{template} randat de entrypoint-ul imaginii, cu
+rezolvare \textbf{leneșă} a upstream-ului printr-o variabilă. Efect: Nginx
+pornește chiar și fără backend disponibil, degradează la \texttt{502} și
+\textbf{își revine automat} când backend-ul redevine disponibil, fără restart.
+
+\subsubsection{Prevenirea recurenței}
+
+Golul real era că CI valida \texttt{npm run build} pe un checkout complet ---
+ceea ce \textbf{nu} este ce face imaginea. S-a adăugat un job care construiește
+imaginile reale, verifică existența punctului de intrare și validează
+configurația Nginx fără upstream disponibil:
+
+\begin{lstlisting}[language=bash,caption={Job-ul CI care previne recurența}]
+- run: docker build -t bytenboard-backend ./backend
+- run: docker run --rm bytenboard-backend test -f dist/index.js
+- run: docker build --build-arg VITE_API_BASE_URL= -t bytenboard-frontend ./frontend
+- run: docker run --rm bytenboard-frontend nginx -t
+\end{lstlisting}
+
+\begin{infobox}{Lecție de proces}
+Un pipeline CI nu validează codul, ci \textbf{artefactul pe care îl livrează}.
+Dacă mediul de test diferă de mediul de producție --- fie și doar prin lista de
+fișiere copiate --- testele pot trece în timp ce produsul livrat este nefuncțional.
+\end{infobox}
+
+\newpage
+% =====================================================================
+\section{Pipeline CI/CD}
+% =====================================================================
+
+Proiectul are două workflow-uri GitHub Actions distincte: \texttt{test.yml}
+(rulează la orice push sau PR, pe orice ramură) și \texttt{deploy.yml}
+(rulează doar la push pe \texttt{main} și livrează în producție).
+
+\diagrama{09-cicd}{1.0}{Pipeline-ul CI/CD --- verificări automate și livrare}
+
+\subsection{Verificări automate}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\toprule
+\textbf{Job} & \textbf{Ce verifică} & \textbf{Eșuează dacă} \\
+\midrule
+\texttt{test-agents} & Suita istorică de regresie & O aserțiune eșuează \\
+\texttt{test-backend} & 140 de teste Vitest & Orice test pică \\
+\texttt{build-backend} & TypeScript compilabil & Erori de tip sau import \\
+\texttt{build-frontend} & Bundle Vite compilabil & Erori TS, importuri lipsă \\
+\texttt{lint-frontend} & ESLint & Variabile neutilizate, tipuri \texttt{any} \\
+\texttt{docker-build} & \textbf{Imaginile reale de producție} & Punctul de intrare lipsește sau Nginx e invalid \\
+\midrule
+\texttt{deploy} & Livrare prin SSH & Oricare dintre cele de mai sus eșuează \\
+\bottomrule
+\end{tabularx}
+\caption{Verificările automate din pipeline}
+\end{table}
+
+Ultimele două job-uri (\texttt{test-backend}, \texttt{docker-build}) au fost
+adăugate ca urmare directă a incidentului din Secțiunea~\ref{sec:bug3}.
+
+\subsection{Gestionarea secretelor}
+
+Pipeline-ul injectează secretele din GitHub Secrets într-un fișier \texttt{.env}
+generat pe server la fiecare deploy:
+
+\begin{itemize}
+  \item \texttt{DATABASE\_URL}, \texttt{JWT\_SECRET}, \texttt{VITE\_API\_BASE\_URL};
+  \item \texttt{GEMINI\_1} \dots \texttt{GEMINI\_8} --- pool-ul de 8 chei API;
+  \item \texttt{SERVER\_HOST}, \texttt{SERVER\_USER}, \texttt{SERVER\_SSH\_KEY}.
+\end{itemize}
+
+Niciun secret nu este versionat: \texttt{.env} figurează în \texttt{.gitignore}.
+
+\subsection{Impactul pipeline-ului}
+
+Politica „niciun merge fără verificări verzi” a prins activ:
+\begin{itemize}
+  \item erori TypeScript introduse de câmpuri noi (\texttt{shipEdges},
+        \texttt{islandVPs}) neadăugate în factory-ul de test;
+  \item erori ESLint preexistente, expuse de verificarea adăugată în PR \#12;
+  \item blocaje de deploy cauzate de un build de frontend eșuat.
+\end{itemize}
+
+% =====================================================================
+\section{Folosirea instrumentelor AI în dezvoltare}
+% =====================================================================
+
+Proiectul implică AI pe \textbf{două axe distincte}, care nu trebuie confundate:
+AI ca \textit{instrument de dezvoltare} și AI ca \textit{funcționalitate a
+produsului}.
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\toprule
+\textbf{Instrument} & \textbf{Rol} & \textbf{Context de utilizare} \\
+\midrule
+Claude Code (Anthropic) & Asistent de programare interactiv & În terminal, pe parcursul dezvoltării \\
+Google Gemini API & Motorul de decizie al agenților & Integrat în produs ca funcționalitate centrală \\
+DeepEval + Gemini & Model-judecător pentru evals & În suita de testare a componentei AI \\
+\bottomrule
+\end{tabularx}
+\caption{Instrumentele AI utilizate în proiect}
+\end{table}
+
+\subsection{Claude Code --- asistent de dezvoltare}
+
+Claude Code a fost folosit ca \textit{pair-programmer} în terminal, cu acces la
+fișierele proiectului. Spre deosebire de autocomplete, operează la nivel de
+\textbf{task}, nu de linie: primește o descriere în limbaj natural, citește
+fișierele relevante, raționează arhitectural și aplică modificări coordonate pe
+mai multe fișiere.
+
+\textbf{Arii susținute:}
+\begin{itemize}
+  \item \textbf{Arhitectură backend} --- reprezentarea grafică a tablei
+        (\texttt{graph.ts}, \texttt{seafarers-graph.ts}), sistemul de trăsături cu
+        matrice de conflicte, și extensia Seafarers fără a rupe logica Classic.
+        Decizia cheie --- \texttt{SeafarersContext} ca parametru \textit{opțional} ---
+        a permis zero cuplare între moduri.
+  \item \textbf{Frontend} --- rescrierea \texttt{CatanBoard.tsx} pentru Seafarers
+        (canvas extins, hexagoane exterioare, trasee punctate pentru nave).
+  \item \textbf{DevOps} --- build-uri Docker multi-stage, pipeline CI/CD, și
+        diagnoza incidentului din Secțiunea~\ref{sec:bug3}, unde cauza rădăcină a
+        fost \textbf{demonstrată experimental} prin reproducerea configurației
+        vechi în contextul real de build Docker.
+  \item \textbf{Testare} --- generarea suitei Vitest și a harness-ului de simulare.
+\end{itemize}
+
+\subsection{Google Gemini --- AI în produs}
+
+Gemini este apelat la fiecare tură a fiecărui agent prin
+\texttt{backend/src/game/ai.ts}, gestionat de \texttt{gemini-client.ts} cu un pool
+de 8 chei API în rotație. La eroare recuperabilă (\texttt{429}, \texttt{503},
+timeout), clientul rotește automat cheia.
+
+\subsubsection{Sistemul de personalitate}
+
+Fiecare agent are trăsături alese din \textbf{15 posibile}: \textit{Empathic,
+Greedy, HardTrader, Aggressive, Expansionist, Defensive, SmartBuilder,
+FastSpender, DevFocused, Diplomatic, Opportunist, Militarist, Settler, Merchant,
+Tactician}. Trăsăturile sunt stocate relațional și injectate în system prompt,
+producând comportamente strategic distincte. Perechile incompatibile sunt
+respinse la creare, pe baza tabelei \texttt{TraitConflict}.
+
+\subsubsection{Utilizări suplimentare}
+
+\begin{itemize}
+  \item \textbf{Moderare de conținut} --- numele agenților și meciurilor sunt
+        validate înainte de stocare, cu o listă locală de termeni interziși ca
+        primă barieră (funcționează și când API-ul este indisponibil);
+  \item \textbf{Rezumate narative} --- la finalul fiecărui meci se generează un
+        rezumat stocat în \texttt{Match.summary};
+  \item \textbf{Comentariu live} --- o frază per acțiune, difuzată prin SSE.
+\end{itemize}
+
+\textbf{Estimare de consum:} $\approx$40--80 de apeluri per meci pentru decizii,
+plus unul pentru rezumatul final. Fallback-ul determinist garantează că jocul
+funcționează și fără nicio cheie configurată.
+
+\subsection{Lecții învățate}
+
+\subsubsection{Ce a funcționat bine}
+\begin{itemize}
+  \item utilizarea asistentului la nivel de task (nu de linie) --- semnificativ
+        mai productivă pentru modificări cross-file;
+  \item parametrul opțional \texttt{SeafarersContext} --- extindere fără regresie
+        pe modul Classic;
+  \item fallback-ul determinist --- dezvoltare și testare fără consum de cotă API;
+  \item \textbf{verificarea empirică a ipotezelor} --- în incidentul de producție,
+        cauza rădăcină nu a fost presupusă, ci reprodusă și demonstrată.
+\end{itemize}
+
+\subsubsection{Ce a necesitat judecată umană}
+\begin{itemize}
+  \item decizii de schemă (când \texttt{--accept-data-loss} este acceptabil față
+        de o migrare propriu-zisă);
+  \item granițele arhitecturale între modurile de joc;
+  \item compromisuri cost/calitate în verbozitatea prompt-urilor.
+\end{itemize}
+
+\subsubsection{Direcții viitoare}
+\begin{itemize}
+  \item trecerea de la \texttt{prisma db push} la migrări versionate
+        (\texttt{prisma migrate deploy});
+  \item paginarea log-ului de evenimente și transmiterea incrementală prin SSE;
+  \item caching pentru stări de joc repetitive, pentru reducerea costului API;
+  \item instrumentarea latenței deciziilor AI.
+\end{itemize}
+
+% =====================================================================
+\section{Concluzii}
+% =====================================================================
+
+Proiectul a livrat o platformă funcțională, desfășurată în producție, care
+acoperă toate cele 15 user stories din backlog. Din perspectiva
+\textit{Metodelor de Dezvoltare Software}, elementele cele mai relevante sunt:
+
+\begin{itemize}
+  \item \textbf{Proces} --- backlog structurat pe epice, prioritizare MoSCoW,
+        dezvoltare pe feature branches, integrare exclusiv prin Pull Requests
+        cu review;
+  \item \textbf{Modelare} --- sistemul a fost descris prin șapte diagrame UML
+        complementare, acoperind atât structura, cât și comportamentul;
+  \item \textbf{Calitate} --- trei niveluri de testare, inclusiv testare bazată pe
+        proprietăți pentru simulare și \textit{evals} pentru componenta
+        non-deterministă;
+  \item \textbf{Automatizare} --- pipeline CI/CD cu șase verificări obligatorii
+        înaintea livrării automate în producție;
+  \item \textbf{Învățare din incidente} --- căderea de producție analizată în
+        Secțiunea~\ref{sec:bug3} a produs o îmbunătățire permanentă de proces,
+        nu doar o remediere punctuală.
+\end{itemize}
+
+Cea mai importantă lecție tehnică a proiectului este că \textbf{o suită de teste
+verde nu garantează un produs funcțional} dacă mediul validat diferă de artefactul
+livrat --- observație care a schimbat structura pipeline-ului.
+
+\end{document}
