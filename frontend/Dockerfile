@@ -21,8 +21,12 @@ RUN npm run build
 # ── Stage 2: Serve with Nginx ──────────────────────────────────────────────────
 FROM nginx:1.27-alpine AS runner
 
-# Copy our custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Rendered by the nginx image entrypoint into /etc/nginx/conf.d/default.conf.
+# NGINX_ENTRYPOINT_LOCAL_RESOLVERS makes 15-local-resolvers.envsh export
+# NGINX_LOCAL_RESOLVERS from the container's /etc/resolv.conf, which the
+# template consumes for its `resolver` directive.
+ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
+COPY default.conf.template /etc/nginx/templates/default.conf.template
 
 # Copy the built static assets
 COPY --from=builder /app/dist /usr/share/nginx/html

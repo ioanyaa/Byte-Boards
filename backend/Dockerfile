@@ -18,6 +18,10 @@ RUN npx prisma generate
 
 RUN npm run build
 
+# Fail the build here rather than crash-loop in production if the compiler
+# output path ever drifts again (see "rootDir" in tsconfig.json).
+RUN test -f dist/index.js
+
 # ── Stage 2: Runtime ───────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 
@@ -37,4 +41,4 @@ COPY prisma.config.ts ./
 
 EXPOSE 5000
 
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/src/index.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/index.js"]

@@ -5,9 +5,22 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # Resolver address is injected by the nginx image entrypoint
+    # (15-local-resolvers.envsh, enabled via NGINX_ENTRYPOINT_LOCAL_RESOLVERS)
+    # by reading the container's own /etc/resolv.conf, so this works on Docker,
+    # Podman, or anywhere else without hardcoding a DNS address.
+    #
+    # A resolver is required because the /api/ upstream below is
+    # resolved lazily (through a variable) rather than at config-load time.
+    # nginx resolves a literal proxy_pass host once, at startup, and aborts with
+    # "host not found in upstream" if it fails — which took the entire frontend
+    # down whenever the backend container was missing or restarting.
+    resolver ${NGINX_LOCAL_RESOLVERS} ipv6=off valid=10s;
+
     # Proxy API and SSE to backend
     location /api/ {
-        proxy_pass http://backend:5000;
+        set $backend_upstream "http://backend:5000";
+        proxy_pass $backend_upstream$request_uri;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -15,6 +28,9 @@ server {
         proxy_buffering off;
         proxy_cache off;
         chunked_transfer_encoding on;
+        # SSE streams (/api/matches/:id/stream) stay open and can idle between
+        # game ticks; nginx's 60s default would silently drop them.
+        proxy_read_timeout 3600s;
     }
 
     # SPA fallback – all routes serve index.html
