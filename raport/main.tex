@@ -707,6 +707,47 @@ dedicate din backend.
 \caption{Metricile de evaluare a componentei AI}
 \end{table}
 
+\subsubsection{Rularea evaluărilor}
+
+Evaluările rulează împotriva backend-ului pornit local, prin rute dedicate care
+sunt montate \textbf{doar} când variabila \texttt{ENABLE\_EVAL\_ROUTES} are
+valoarea \texttt{true} --- ele nu au autentificare și nu sunt niciodată active în
+producție. Sunt necesare două chei Gemini, cu roluri diferite (poate fi aceeași
+cheie în ambele locuri):
+
+\begin{itemize}
+  \item \textbf{pentru backend} (\texttt{GEMINI\_API\_KEY} sau
+        \texttt{GEMINI\_1} \dots \texttt{GEMINI\_8}), folosită de componenta
+        evaluată. Fără ea, backend-ul trece silențios pe euristica deterministă,
+        iar evaluările ar nota euristica, nu modelul;
+  \item \textbf{pentru modelul-judecător} (\texttt{GOOGLE\_API\_KEY}, exportată
+        sau pusă în \texttt{evals/.env}). Este cerută doar de
+        \texttt{test\_agent\_decisions.py} și \texttt{test\_match\_summary.py};
+        \texttt{test\_name\_moderation.py} compară direct verdictul de moderare
+        cu rezultatul așteptat, fără judecător.
+\end{itemize}
+
+\begin{lstlisting}[language=bash,caption={Rularea suitei de evals DeepEval}]
+# Terminal 1 -- backend cu rutele de eval activate
+cd backend
+export GEMINI_API_KEY=<cheia-gemini>    # sau GEMINI_1..8 in backend/.env
+ENABLE_EVAL_ROUTES=true npm run dev
+
+# Terminal 2 -- evaluarile
+cd evals
+pip install -r requirements.txt
+export GOOGLE_API_KEY=<cheia-gemini>
+
+deepeval test run test_agent_decisions.py -v
+deepeval test run test_match_summary.py -v
+deepeval test run test_name_moderation.py -v
+\end{lstlisting}
+
+Comanda \texttt{deepeval test run} execută fișierul de test prin \texttt{pytest}
+și adaugă la final raportul DeepEval cu scorurile metricilor. Opțiunea \texttt{-v}
+(\textit{verbose}) afișează rezultatul fiecărui caz de test în parte, nu doar
+totalul --- util pentru a identifica exact scenariul care nu atinge pragul.
+
 \begin{infobox}{Garanție structurală înaintea evaluării calitative}
 Independent de calitatea răspunsului LLM, sistemul are o garanție \textbf{tare}:
 \texttt{getAgentDecision()} returnează întotdeauna o acțiune din lista de mutări
