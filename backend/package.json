@@ -7,7 +7,7 @@
     "dev": "nodemon src/index.ts",
     "docker:dev": "npx prisma generate && npx prisma db push && nodemon src/index.ts",
     "build": "tsc",
-    "start": "node dist/src/index.js",
+    "start": "node dist/index.js",
     "test:agents": "ts-node test-agents.ts",
     "test": "vitest run",
     "test:watch": "vitest"

@@ -9,6 +9,10 @@ services:
     restart: unless-stopped
     ports:
       - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - app-net
 
   backend:
     build: ./backend
@@ -20,8 +24,15 @@ services:
     ports:
       - "127.0.0.1:3003:5000"
     networks:
+      - app-net
       - global-db-net
 
 networks:
+  # Shared frontend <-> backend network. Previously `backend` declared only
+  # global-db-net; naming any network replaces the implicit default, so the two
+  # services shared no network at all and nginx could not resolve "backend".
+  app-net:
+    driver: bridge
+  # External network carrying the shared `universal-db` postgres container.
   global-db-net:
     external: true

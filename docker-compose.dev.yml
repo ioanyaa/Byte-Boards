@@ -21,8 +21,10 @@ services:
     build: ./backend
     container_name: byte_boards_backend
     restart: unless-stopped
-    # db push syncs schema without needing migration files (good for local dev)
-    command: sh -c "npx prisma db push --accept-data-loss && node dist/src/index.js"
+    # No `command:` override — the image CMD already runs `prisma db push`
+    # (which syncs the schema without migration files, good for local dev) and
+    # then the server. Duplicating it here is what let the dev and production
+    # entrypoint paths silently drift apart.
     environment:
       DATABASE_URL: "postgresql://admin:admin@db:5432/postgres?schema=public"
       JWT_SECRET: "byte-boards-secret-change-in-production"
